@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel del Restaurante</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #f3f4f6;
+            color: #222;
+        }
+
+        header {
+            background: #171717;
+            color: white;
+            padding: 25px;
+        }
+
+        header h1 {
+            margin-bottom: 8px;
+        }
+
+        .contenedor {
+            max-width: 1200px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .barra {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .barra input {
+            padding: 11px;
+            border: 1px solid #ccc;
+            border-radius: 7px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 11px 16px;
+            border: none;
+            border-radius: 7px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-negro {
+            background: #171717;
+            color: white;
+        }
+
+        .btn-rojo {
+            background: #c62828;
+            color: white;
+        }
+
+        .btn-verde {
+            background: #218838;
+            color: white;
+        }
+
+        .seccion {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.06);
+        }
+
+        .seccion h2 {
+            margin-bottom: 20px;
+        }
+
+        .tabla-contenedor {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        th,
+        td {
+            padding: 13px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        th {
+            background: #f1f1f1;
+        }
+
+        .estado {
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: bold;
+        }
+
+        .confirmada {
+            background: #d9f7df;
+            color: #176b2c;
+        }
+
+        .cancelada {
+            background: #ffdede;
+            color: #9b1c1c;
+        }
+
+        .mesas {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+        }
+
+        .mesa {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 18px;
+        }
+
+        .mesa h3 {
+            margin-bottom: 8px;
+        }
+
+        .mesa p {
+            margin-bottom: 12px;
+            color: #555;
+        }
+
+        .bloqueada {
+            border: 2px solid #c62828;
+            background: #fff4f4;
+        }
+
+        .libre {
+            border: 2px solid #218838;
+            background: #f3fff5;
+        }
+
+        .mensaje {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error {
+            background: #ffdede;
+            color: #9b1c1c;
+        }
+
+        @media(max-width: 600px) {
+            header {
+                padding: 20px;
+            }
+
+            .contenedor {
+                margin-top: 20px;
+            }
+
+            .seccion {
+                padding: 18px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Panel del Restaurante</h1>
+    <p>Gestión de reservas y mesas</p>
+</header>
+
+<div class="contenedor">
+
+    <div id="mensaje" class="mensaje"></div>
+
+    <!-- FILTRO DE FECHA -->
+
+    <div class="barra">
+
+        <label for="fecha">
+            <strong>Fecha:</strong>
+        </label>
+
+        <input type="date" id="fecha">
+
+        <button class="btn-negro" onclick="cargarReservas()">
+            Buscar reservas
+        </button>
+
+        <button class="btn-verde" onclick="cargarTodo()">
+            Actualizar
+        </button>
+
+    </div>
+
+
+    <!-- RESERVAS -->
+
+    <div class="seccion">
+
+        <h2>Reservas</h2>
+
+        <div class="tabla-contenedor">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+                        <th>Hora</th>
+                        <th>Nombre</th>
+                        <th>Teléfono</th>
+                        <th>Personas</th>
+                        <th>Mesa</th>
+                        <th>Observaciones</th>
+                        <th>Estado</th>
+                        <th>Acción</th>
+                    </tr>
+
+                </thead>
+
+                <tbody id="tablaReservas">
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+    <!-- MESAS -->
+
+    <div class="seccion">
+
+        <h2>Mesas</h2>
+
+        <div id="listaMesas" class="mesas">
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    // ==========================================
+    // SUPABASE
+    // ==========================================
+
+    const SUPABASE_URL =
+        "https://lbqjpjjndvqrlohxqnpe.supabase.co";
+
+    const SUPABASE_KEY =
+        "sb_publishable_Xs3P6WR8uz2mE-9VsxQ14w_Rf9yjhrC";
+
+
+    // ==========================================
+    // FECHA DE HOY
+    // ==========================================
+
+    const fechaInput =
+        document.getElementById("fecha");
+
+    const hoy =
+        new Date();
+
+    const año =
+        hoy.getFullYear();
+
+    const mes =
+        String(hoy.getMonth() + 1).padStart(2, "0");
+
+    const dia =
+        String(hoy.getDate()).padStart(2, "0");
+
+    const fechaHoy =
+        `${año}-${mes}-${dia}`;
+
+    fechaInput.value = fechaHoy;
+
+
+    // ==========================================
+    // CABECERAS SUPABASE
+    // ==========================================
+
+    const headers = {
+
+        "apikey": SUPABASE_KEY,
+
+        "Authorization":
+            `Bearer ${SUPABASE_KEY}`
+
+    };
+
+
+    // ==========================================
+    // CARGAR TODO
+    // ==========================================
+
+    async function cargarTodo() {
+
+        await cargarReservas();
+
+        await cargarMesas();
+
+    }
+
+
+    // ==========================================
+    // CARGAR RESERVAS
+    // ==========================================
+
+    async function cargarReservas() {
+
+        const fecha =
+            fechaInput.value;
+
+        try {
+
+            const respuesta =
+                await fetch(
+
+                    `${SUPABASE_URL}/rest/v1/reservas?select=*,mesas(numero,capacidad)&fecha=eq.${fecha}&order=hora.asc`,
+
+                    {
+                        headers: headers
+                    }
+
+                );
+
+
+            if (!respuesta.ok) {
+
+                throw new Error(
+                    "No se pudieron cargar las reservas."
+                );
+
+            }
+
+
+            const reservas =
+                await respuesta.json();
+
+
+            const tabla =
+                document.getElementById(
+                    "tablaReservas"
+                );
+
+
+            tabla.innerHTML = "";
+
+
+            if (reservas.length === 0) {
+
+                tabla.innerHTML = `
+
+                    <tr>
+
+                        <td colspan="8"
+                            style="text-align:center;padding:30px;">
+
+                            No hay reservas para este día.
+
+                        </td>
+
+                    </tr>
+
+                `;
+
+                return;
+
+            }
+
+
+            reservas.forEach(reserva => {
+
+                const fila =
+                    document.createElement("tr");
+
+
+                const mesa =
+                    reserva.mesas
+                        ? `Mesa ${reserva.mesas.numero}`
+                        : "Sin mesa";
+
+
+                const estadoClase =
+                    reserva.estado === "confirmada"
+                        ? "confirmada"
+                        : "cancelada";
+
+
+                fila.innerHTML = `
+
+                    <td>${reserva.hora.substring(0,5)}</td>
+
+                    <td>${escapeHTML(reserva.nombre)}</td>
+
+                    <td>${escapeHTML(reserva.telefono)}</td>
+
+                    <td>${reserva.personas}</td>
+
+                    <td>${mesa}</td>
+
+                    <td>
+                        ${escapeHTML(
+                            reserva.observaciones || "-"
+                        )}
+                    </td>
+
+                    <td>
+
+                        <span class="estado ${estadoClase}">
+
+                            ${escapeHTML(reserva.estado)}
+
+                        </span>
+
+                    </td>
+
+                    <td>
+
+                        ${
+                            reserva.estado === "confirmada"
+
+                            ?
+
+                            `<button
+                                class="btn-rojo"
+                                onclick="cancelarReserva(${reserva.id})">
+
+                                Cancelar
+
+                            </button>`
+
+                            :
+
+                            "-"
+                        }
+
+                    </td>
+
+                `;
+
+
+                tabla.appendChild(fila);
+
+            });
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            mostrarError(
+                "No se pudieron cargar las reservas."
+            );
+
+        }
+
+    }
+
+
+    // ==========================================
+    // CARGAR MESAS
+    // ==========================================
+
+    async function cargarMesas() {
+
+        try {
+
+            const respuesta =
+                await fetch(
+
+                    `${SUPABASE_URL}/rest/v1/mesas?select=*&order=numero.asc`,
+
+                    {
+                        headers: headers
+                    }
+
+                );
+
+
+            if (!respuesta.ok) {
+
+                throw new Error(
+                    "No se pudieron cargar las mesas."
+                );
+
+            }
+
+
+            const mesas =
+                await respuesta.json();
+
+
+            const contenedor =
+                document.getElementById(
+                    "listaMesas"
+                );
+
+
+            contenedor.innerHTML = "";
+
+
+            mesas.forEach(mesa => {
+
+                const elemento =
+                    document.createElement("div");
+
+
+                elemento.className =
+                    mesa.bloqueada
+                        ? "mesa bloqueada"
+                        : "mesa libre";
+
+
+                elemento.innerHTML = `
+
+                    <h3>
+                        Mesa ${mesa.numero}
+                    </h3>
+
+                    <p>
+                        Capacidad:
+                        <strong>
+                            ${mesa.capacidad}
+                        </strong>
+                        personas
+                    </p>
+
+                    <p>
+                        Estado:
+                        <strong>
+                            ${
+                                mesa.bloqueada
+                                ? "Bloqueada"
+                                : "Disponible"
+                            }
+                        </strong>
+                    </p>
+
+                    <button
+                        class="${
+                            mesa.bloqueada
+                            ? "btn-verde"
+                            : "btn-rojo"
+                        }"
+                        onclick="cambiarEstadoMesa(
+                            ${mesa.id},
+                            ${mesa.bloqueada}
+                        )">
+
+                        ${
+                            mesa.bloqueada
+                            ? "Desbloquear"
+                            : "Bloquear"
+                        }
+
+                    </button>
+
+                `;
+
+
+                contenedor.appendChild(elemento);
+
+            });
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            mostrarError(
+                "No se pudieron cargar las mesas."
+            );
+
+        }
+
+    }
+
+
+    // ==========================================
+    // BLOQUEAR / DESBLOQUEAR MESA
+    // ==========================================
+
+    async function cambiarEstadoMesa(
+        id,
+        estadoActual
+    ) {
+
+        try {
+
+            const respuesta =
+                await fetch(
+
+                    `${SUPABASE_URL}/rest/v1/mesas?id=eq.${id}`,
+
+                    {
+
+                        method: "PATCH",
+
+                        headers: {
+
+                            ...headers,
+
+                            "Content-Type":
+                                "application/json"
+
+                        },
+
+                        body: JSON.stringify({
+
+                            bloqueada:
+                                !estadoActual
+
+                        })
+
+                    }
+
+                );
+
+
+            if (!respuesta.ok) {
+
+                throw new Error(
+                    "No se pudo cambiar el estado."
+                );
+
+            }
+
+
+            await cargarMesas();
+
+        } catch (error) {
+
+            console.error(error);
+
+            mostrarError(
+                "No se pudo modificar la mesa."
+            );
+
+        }
+
+    }
+
+
+    // ==========================================
+    // CANCELAR RESERVA
+    // ==========================================
+
+    async function cancelarReserva(id) {
+
+        const confirmar =
+            confirm(
+                "¿Quieres cancelar esta reserva?"
+            );
+
+
+        if (!confirmar) return;
+
+
+        try {
+
+            const respuesta =
+                await fetch(
+
+                    `${SUPABASE_URL}/rest/v1/reservas?id=eq.${id}`,
+
+                    {
+
+                        method: "PATCH",
+
+                        headers: {
+
+                            ...headers,
+
+                            "Content-Type":
+                                "application/json"
+
+                        },
+
+                        body: JSON.stringify({
+
+                            estado: "cancelada"
+
+                        })
+
+                    }
+
+                );
+
+
+            if (!respuesta.ok) {
+
+                throw new Error(
+                    "No se pudo cancelar la reserva."
+                );
+
+            }
+
+
+            await cargarReservas();
+
+        } catch (error) {
+
+            console.error(error);
+
+            mostrarError(
+                "No se pudo cancelar la reserva."
+            );
+
+        }
+
+    }
+
+
+    // ==========================================
+    // SEGURIDAD PARA MOSTRAR TEXTO
+    // ==========================================
+
+    function escapeHTML(texto) {
+
+        return String(texto)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+
+    }
+
+
+    // ==========================================
+    // ERROR
+    // ==========================================
+
+    function mostrarError(texto) {
+
+        const mensaje =
+            document.getElementById("mensaje");
+
+        mensaje.textContent = texto;
+
+        mensaje.className =
+            "mensaje error";
+
+        mensaje.style.display =
+            "block";
+
+    }
+
+
+    // ==========================================
+    // CARGAR AL ABRIR
+    // ==========================================
+
+    cargarTodo();
+
+</script>
+
+</body>
+</html>
