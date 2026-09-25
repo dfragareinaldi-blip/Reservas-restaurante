@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservas - Restaurante</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #f4f4f4;
+            color: #222;
+        }
+
+        header {
+            background: #171717;
+            color: white;
+            text-align: center;
+            padding: 25px 15px;
+        }
+
+        header h1 {
+            font-size: 30px;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: #ccc;
+        }
+
+        .contenedor {
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .tarjeta {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        }
+
+        .tarjeta h2 {
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .campo {
+            margin-bottom: 18px;
+        }
+
+        .campo label {
+            display: block;
+            margin-bottom: 7px;
+            font-weight: bold;
+        }
+
+        .campo input,
+        .campo select,
+        .campo textarea {
+            width: 100%;
+            padding: 13px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .campo textarea {
+            height: 90px;
+            resize: vertical;
+        }
+
+        .fila {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #171717;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 17px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #333;
+        }
+
+        #mensaje {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+            text-align: center;
+        }
+
+        .exito {
+            background: #d9f7df;
+            color: #176b2c;
+        }
+
+        .error {
+            background: #ffdede;
+            color: #9b1c1c;
+        }
+
+        @media (max-width: 600px) {
+            .fila {
+                grid-template-columns: 1fr;
+            }
+
+            .tarjeta {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Mi Restaurante</h1>
+    <p>Reserva tu mesa online</p>
+</header>
+
+<div class="contenedor">
+
+    <div class="tarjeta">
+
+        <h2>Haz tu reserva</h2>
+
+        <form id="formReserva">
+
+            <div class="fila">
+
+                <div class="campo">
+                    <label for="fecha">Fecha</label>
+                    <input type="date" id="fecha" required>
+                </div>
+
+                <div class="campo">
+                    <label for="hora">Hora</label>
+                    <input type="time" id="hora" required>
+                </div>
+
+            </div>
+
+            <div class="campo">
+                <label for="personas">Número de personas</label>
+
+                <select id="personas" required>
+                    <option value="">Selecciona</option>
+                    <option value="1">1 persona</option>
+                    <option value="2">2 personas</option>
+                    <option value="3">3 personas</option>
+                    <option value="4">4 personas</option>
+                    <option value="5">5 personas</option>
+                    <option value="6">6 personas</option>
+                    <option value="7">7 personas</option>
+                    <option value="8">8 personas</option>
+                    <option value="9">9 personas</option>
+                    <option value="10">10 personas</option>
+                </select>
+            </div>
+
+            <div class="campo">
+                <label for="nombre">Nombre</label>
+                <input
+                    type="text"
+                    id="nombre"
+                    placeholder="Tu nombre"
+                    required
+                >
+            </div>
+
+            <div class="campo">
+                <label for="telefono">Teléfono</label>
+                <input
+                    type="tel"
+                    id="telefono"
+                    placeholder="Tu teléfono"
+                    required
+                >
+            </div>
+
+            <div class="campo">
+                <label for="observaciones">Observaciones</label>
+
+                <textarea
+                    id="observaciones"
+                    placeholder="Alguna petición especial..."
+                ></textarea>
+            </div>
+
+            <button type="submit">
+                Confirmar reserva
+            </button>
+
+        </form>
+
+        <div id="mensaje"></div>
+
+    </div>
+
+</div>
+
+<script>
+
+    // ==========================================
+    // CONEXIÓN CON SUPABASE
+    // ==========================================
+
+    const SUPABASE_URL =
+        "https://lbqjpjjndvqrlohxqnpe.supabase.co";
+
+    const SUPABASE_KEY =
+        "sb_publishable_Xs3P6WR8uz2mE-9VsxQ14w_Rf9yjhrC";
+
+    const formulario = document.getElementById("formReserva");
+    const mensaje = document.getElementById("mensaje");
+
+    // Poner como fecha mínima el día actual
+
+    const fechaInput = document.getElementById("fecha");
+
+    const hoy = new Date();
+
+    const año = hoy.getFullYear();
+    const mes = String(hoy.getMonth() + 1).padStart(2, "0");
+    const dia = String(hoy.getDate()).padStart(2, "0");
+
+    fechaInput.min = `${año}-${mes}-${dia}`;
+
+
+    // ==========================================
+    // CREAR RESERVA
+    // ==========================================
+
+    formulario.addEventListener("submit", async function(e) {
+
+        e.preventDefault();
+
+        const nombre =
+            document.getElementById("nombre").value.trim();
+
+        const telefono =
+            document.getElementById("telefono").value.trim();
+
+        const fecha =
+            document.getElementById("fecha").value;
+
+        const hora =
+            document.getElementById("hora").value;
+
+        const personas =
+            parseInt(document.getElementById("personas").value);
+
+        const observaciones =
+            document.getElementById("observaciones").value.trim();
+
+
+        mensaje.style.display = "none";
+
+
+        try {
+
+            // Buscar mesas disponibles
+
+            const respuestaMesas = await fetch(
+                `${SUPABASE_URL}/rest/v1/mesas?select=*&capacidad=gte.${personas}&bloqueada=eq.false&order=capacidad.asc`,
+                {
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`
+                    }
+                }
+            );
+
+
+            if (!respuestaMesas.ok) {
+                throw new Error("No se pudieron consultar las mesas.");
+            }
+
+
+            const mesas = await respuestaMesas.json();
+
+
+            if (mesas.length === 0) {
+
+                mostrarMensaje(
+                    "No hay ninguna mesa disponible para ese número de personas.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            // Comprobar reservas existentes
+
+            const respuestaReservas = await fetch(
+                `${SUPABASE_URL}/rest/v1/reservas?select=mesa_id&fecha=eq.${fecha}&hora=eq.${hora}&estado=eq.confirmada`,
+                {
+                    headers: {
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`
+                    }
+                }
+            );
+
+
+            if (!respuestaReservas.ok) {
+                throw new Error("No se pudieron consultar las reservas.");
+            }
+
+
+            const reservasExistentes =
+                await respuestaReservas.json();
+
+
+            const mesasOcupadas =
+                reservasExistentes.map(r => r.mesa_id);
+
+
+            // Buscar una mesa libre
+
+            const mesaDisponible =
+                mesas.find(mesa =>
+                    !mesasOcupadas.includes(mesa.id)
+                );
+
+
+            if (!mesaDisponible) {
+
+                mostrarMensaje(
+                    "Lo sentimos, no quedan mesas disponibles para esa fecha y hora.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            // Crear reserva
+
+            const nuevaReserva = {
+
+                nombre: nombre,
+
+                telefono: telefono,
+
+                fecha: fecha,
+
+                hora: hora,
+
+                personas: personas,
+
+                mesa_id: mesaDisponible.id,
+
+                estado: "confirmada",
+
+                observaciones: observaciones
+
+            };
+
+
+            const respuestaReserva = await fetch(
+                `${SUPABASE_URL}/rest/v1/reservas`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json",
+                        "apikey": SUPABASE_KEY,
+                        "Authorization": `Bearer ${SUPABASE_KEY}`,
+                        "Prefer": "return=representation"
+                    },
+
+                    body: JSON.stringify(nuevaReserva)
+                }
+            );
+
+
+            if (!respuestaReserva.ok) {
+
+                const errorTexto =
+                    await respuestaReserva.text();
+
+                console.error(errorTexto);
+
+                throw new Error(
+                    "No se pudo guardar la reserva."
+                );
+            }
+
+
+            // Reserva creada correctamente
+
+            mostrarMensaje(
+                `Reserva confirmada para ${nombre}. Mesa ${mesaDisponible.numero}.`,
+                "exito"
+            );
+
+
+            formulario.reset();
+
+            fechaInput.min =
+                `${año}-${mes}-${dia}`;
+
+
+        } catch (error) {
+
+            console.error(error);
+
+            mostrarMensaje(
+                "Ha ocurrido un error al realizar la reserva.",
+                "error"
+            );
+
+        }
+
+    });
+
+
+    // ==========================================
+    // MOSTRAR MENSAJES
+    // ==========================================
+
+    function mostrarMensaje(texto, tipo) {
+
+        mensaje.textContent = texto;
+
+        mensaje.className = tipo;
+
+        mensaje.style.display = "block";
+
+    }
+
+</script>
+
+</body>
+</html>
